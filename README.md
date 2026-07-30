@@ -1,4 +1,90 @@
 
+# Al-Tasnim-WrenAI — Local Setup & How It Works
+
+WrenAI (open-source GenBI / Text-to-SQL) running locally against the Al-Tasnim MS SQL database.
+The repo has been aligned into **`frontend/`** (UI) and **`backend/`** (services); `docker/` stays at
+the root because that's how the stack is run.
+
+## Repository layout
+```
+Al-Tasnim-WrenAI/
+├── frontend/
+│   └── wren-ui/                 # the UI (Next.js) — Modeling, Knowledge, chat, charts
+├── backend/
+│   ├── wren-ai-service/         # AI/LLM service (Text-to-SQL)
+│   ├── wren-engine/             # SQL / semantic engine (git submodule)
+│   ├── wren-launcher/
+│   └── wren-mdl/
+├── docker/                      # run everything from here (compose + .env + config.yaml)
+├── deployment/  misc/           # infra / ops
+```
+
+## Prerequisites
+- **Docker Desktop** running (only requirement to *use* it).
+- An **OpenAI API key** (default) — or a local Ollama model via `config.yaml`.
+- For editing the UI: **Node.js LTS** + **Yarn**.
+
+## Run (use it) — Docker, prebuilt images
+```bash
+cd docker
+# first time only:
+cp .env.example .env            # (Windows cmd: copy .env.example .env)
+cp config.example.yaml config.yaml
+# set OPENAI_API_KEY in .env  (USER_UUID is optional telemetry)
+
+docker compose --env-file .env up -d      # start
+docker compose ps                          # status
+docker compose logs -f wren-ai-service     # logs
+docker compose --env-file .env down        # stop
+```
+Open **http://localhost:3000**.
+
+### Fresh restart
+- Keep data: `docker compose --env-file .env up -d --force-recreate`
+- Wipe everything (re-onboard needed): `docker compose --env-file .env down -v` then `up -d`
+
+## Edit the UI and see changes — `frontend/wren-ui` dev mode
+1. Run the backend with published ports: `cd docker && docker compose -f docker-compose-dev.yaml --env-file .env up -d`
+2. Run the UI from source:
+   ```bash
+   cd frontend/wren-ui
+   yarn install
+   # create .env.local:
+   #   DB_TYPE=sqlite
+   #   SQLITE_FILE=./db.sqlite3
+   #   WREN_ENGINE_ENDPOINT=http://localhost:8080
+   #   WREN_AI_ENDPOINT=http://localhost:5555
+   #   IBIS_SERVER_ENDPOINT=http://localhost:8000
+   yarn migrate      # first time (sqlite schema)
+   yarn dev          # http://localhost:3000 with hot reload
+   ```
+
+## LLM configuration
+Models are set in **`docker/config.yaml`** (litellm). Default = OpenAI. For local Ollama/Qwen, copy the
+block from `backend/wren-ai-service/docs/config_examples/config.ollama.yaml`, then
+`docker compose --env-file .env up -d --force-recreate wren-ai-service`. Only the API key lives in `.env`.
+
+## How it works (the flow)
+1. **Connect data source** (onboarding) → WrenAI introspects the DB and creates **Models** (tables) in **Modeling**.
+2. **Modeling** = the semantic layer: models (tables), columns, **relationships (joins)**, calculated fields,
+   metrics, and descriptions.
+   - **Declared foreign keys are auto-detected** and shown as Relationships. WrenAI can also **AI-recommend**
+     relationships. **Implicit joins (shared key, no FK constraint) are NOT auto-detected — you add them here.**
+     Review/complete relationships here (this is the mapping the SQL generator relies on).
+3. **Knowledge** = your guidance:
+   - **Instructions** = business rules in plain English (e.g. "a completed well has a hook-up completion date",
+     "don't filter by is_active unless asked", "WBS = activity group"). Steers SQL generation.
+   - **Question-SQL pairs** = few-shot examples (question → known-good SQL) to teach correct patterns.
+4. The model + knowledge are indexed into the **qdrant** vector store.
+5. **Ask a question** → intent classification → schema retrieval → SQL generation (LLM) → SQL run via
+   **wren-engine/ibis** against MS SQL → results → natural-language answer + optional **chart/visualization**.
+
+## Services
+- **frontend/wren-ui** — UI (port 3000)  ·  **backend/wren-ai-service** — AI (5555)
+- **backend/wren-engine** + **ibis-server** — engine + DB connectors  ·  **qdrant** — vector store
+
+---
+
 <p align="center" id="top">
   <a href="https://getwren.ai/?utm_source=github&utm_medium=title&utm_campaign=readme">
     <picture>
