@@ -19,6 +19,62 @@ from __future__ import annotations
 from src.altasnim.settings import domain_rules_enabled
 
 # --------------------------------------------------------------------------------------
+# 0. Al-Tasnim business definitions - the domain knowledge the model cannot infer
+#
+# NOTE ON NAMING: this deployment's models are named with underscores (core_Well,
+# ref_ActivityMaster, ...), so all references below use that form.
+# NOTE ON FUNCTIONS: these rules state business FACTS, not implementations. Express them
+# using only functions from the SQL FUNCTIONS list you were given.
+# --------------------------------------------------------------------------------------
+_BUSINESS_RULES = """
+[AL-TASNIM] BUSINESS DEFINITIONS (authoritative - these override any guess):
+- DOMAIN: an oil & gas drilling project database. The main entity is a WELL (core_Well).
+- COMPLETED WELL: core_WellDeliveryEvent.Eng_Completion_Date IS NOT NULL. This column is the
+  business term "Hook Up Completion". NULL means NOT completed.
+- LIVE / ACTIVE WELL: core_Well.is_active = 1 AND core_Well.is_current = 1. Apply this ONLY
+  when the user asks about live/active/current wells - never by default.
+- RIG-ON: core_WellDeliveryEvent.Rig_On_Expected_Date is the target/expected date;
+  Rig_On_Date is the ACTUAL date. A well MISSED its rig-on when the expected date is in the
+  past and the actual date is still NULL.
+- FLAF-READY: core_WellDocument.Flaf_Date IS NOT NULL (a well is FLAF-ready once Flaf_Date is
+  set/passed). FLAF = Field Layout Approval Form.
+- WBS TERMINOLOGY: "WBS" and "activity group" mean the SAME thing.
+  * "WBS" / "list WBS" / "activity groups" -> the NAMES in ref_ActivityMaster.activity_group.
+    This is the DEFAULT meaning of WBS.
+  * "WBS code" / "WBS codes" -> core_ScheduleTask.wbs_code (hierarchical codes).
+  * WBS-branch PROGRESS -> the wide columns of core_ProgressDetail.
+  If the user just says "WBS", use activity_group; use wbs_code only when they say "code".
+- LATEST STATUS: the *Snapshot tables are time series keyed by date_key. For
+  "current"/"latest" status take the newest row per well (or per task) - never an average
+  across history.
+- DATE KEYS: *_date_key columns are INTEGERS in YYYYMMDD form (e.g. 20260607 = 2026-06-07),
+  not real dates - convert before any date maths, and only when the value is a positive key
+  (0 or NULL means unknown). ref_Date is EMPTY - do NOT join it to resolve dates. Columns
+  already typed as date/timestamp (e.g. in core_WellDeliveryEvent, core_ScheduleTaskSnapshot)
+  hold real dates - use them directly.
+- PROGRESS SCALE: progress values are 0-1 FRACTIONS (0.2700 = 27%); multiply by 100 for a
+  percentage. Prefer core_ProgressSnapshot.overall_progress
+  (overall_progress_percentage is often 0/empty). core_ScheduleTaskSnapshot.progress and the
+  core_ProgressDetail value columns are also 0-1 (1.0000 = complete).
+- WBS BRANCH PROGRESS lives in the wide value columns of core_ProgressDetail, each 0-1. Link
+  it to a well through core_WellScope (well_scope_key), because
+  core_ProgressDetail.progress_snapshot_id may be NULL.
+- WELL <-> PROJECT: the key is on the WELL side - core_Well.project_key points at
+  core_Project.project_key. core_Project does NOT contain well_key.
+- DATA STATE: the database is still being loaded. Some tables may be EMPTY and many rows
+  currently have is_active = 0. If a query returns no rows it may be incomplete data rather
+  than a wrong query - never state "there are none" as a certainty.
+- SCOPE: only the drilling domain (core_*) and its lookups (ref_*) are in scope. Never query
+  application, configuration, telemetry, staging or ml_* tables, and never select any
+  password/secret/token column.
+NOT YET DEFINED - if a question depends on one of these, answer what you can and say the rule
+is undefined rather than inventing it:
+- the exact "missed KPI" rule (relates to core_WellScope.kpi_days)
+- whether a "lagging WBS branch" should come from core_ProgressDetail's wide columns or the
+  core_ScheduleTask hierarchy, and what the numeric suffixes in those column names weigh.
+"""
+
+# --------------------------------------------------------------------------------------
 # 1. Intent fidelity - answer exactly what was asked, nothing more
 # --------------------------------------------------------------------------------------
 _INTENT_RULES = """
@@ -199,6 +255,8 @@ def sql_generation_rules() -> list[str]:
     if not _enabled():
         return []
     return [
+        # Business definitions first: they are the ground truth everything else builds on.
+        _BUSINESS_RULES.strip(),
         _INTENT_RULES.strip(),
         _SCHEMA_RULES.strip(),
         _CORRECTNESS_RULES.strip(),
@@ -207,6 +265,13 @@ def sql_generation_rules() -> list[str]:
         _SAFETY_RULES.strip(),
         _SELF_CHECK_RULES.strip(),
     ]
+
+
+def business_definitions() -> str:
+    """The Al-Tasnim domain definitions, for prompts that need intent grounding."""
+    if not _enabled():
+        return ""
+    return _BUSINESS_RULES.strip()
 
 
 def answer_integrity_rules() -> str:

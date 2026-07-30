@@ -23,6 +23,7 @@ from haystack.components.builders.prompt_builder import PromptBuilder
 from langfuse.decorators import observe
 from pydantic import BaseModel
 
+from src.altasnim.domain_rules import business_definitions
 from src.altasnim.settings import verifier_enabled
 from src.core.pipeline import BasicPipeline
 from src.core.provider import LLMProvider
@@ -32,7 +33,7 @@ from src.utils import trace_cost
 logger = logging.getLogger("wren-ai-service")
 
 
-sql_verifier_system_prompt = """
+sql_verifier_system_prompt = f"""
 ### TASK ###
 
 You are an independent, strict SQL reviewer for a Microsoft SQL Server analytics platform.
@@ -66,6 +67,8 @@ skeptical - but do not reject a query merely because you would have written it d
 9. GROUPING: an arbitrary MAX()/MIN() on a descriptive column is used just to satisfy
    GROUP BY, letting one arbitrary row stand in for a whole group.
 10. SAFETY: it is not a single read-only SELECT (or WITH ... SELECT).
+
+{business_definitions()}
 
 ### BURDEN OF PROOF - READ THIS BEFORE REJECTING ###
 
@@ -101,11 +104,11 @@ statement. Never reject a query merely for being long or composed.
 
 Return ONLY this JSON:
 
-{
+{{
     "ok": true or false,
     "issue": "<the single most important problem, empty string when ok>",
     "feedback": "<when ok is false: how to fix it, referring ONLY to tables and columns that appear in the schema above; empty string when ok>"
-}
+}}
 """
 
 sql_verifier_user_prompt_template = """
