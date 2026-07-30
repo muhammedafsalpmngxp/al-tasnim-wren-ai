@@ -62,6 +62,11 @@ _SCHEMA_RULES = """
     relationship chain, or select the equivalent column from a table you HAVE joined. Check
     every column reference resolves to a table in the same query scope, including inside
     each CTE (a CTE only sees the tables it declares itself).
+12b. RELATIONSHIP DIRECTION: a foreign key exists on ONE side only. The child table holds the
+    key that points at the parent's primary key; the parent does NOT hold a column pointing
+    back at the child. Join on the parent's primary key = the child's foreign key. Before
+    writing any join condition, confirm BOTH column names appear on the tables you name -
+    read the schema, do not assume a mirrored column exists.
 """
 
 # --------------------------------------------------------------------------------------
