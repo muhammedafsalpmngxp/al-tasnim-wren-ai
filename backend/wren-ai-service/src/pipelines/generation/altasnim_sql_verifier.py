@@ -58,12 +58,14 @@ skeptical - but do not reject a query merely because you would have written it d
    must return exactly N with a matching ORDER BY; "how many" must return a COUNT.
 6. LATEST vs HISTORY: the question asks for current/latest state but the query averages or
    aggregates across history instead of selecting the newest row per entity (or vice versa).
-7. FUNCTION MISUSE: a function is called with the wrong signature or does not exist in SQL
-   Server - for example DATEDIFF must take three arguments, DATEDIFF(day, start, end), and
-   DATE_TRUNC / EXTRACT / ILIKE / LIMIT do not exist.
-8. GROUPING: an arbitrary MAX()/MIN() on a descriptive column is used just to satisfy
+7. FUNCTION MISUSE: it calls a function that is NOT in the SQL FUNCTIONS list supplied to
+   the author, or calls a listed function with the wrong argument signature. Judge this
+   against the supplied list only - do not assume the target database's native dialect.
+8. TYPE MISMATCH: it joins or compares columns of incompatible types (for example a text
+   column against a numeric one), which fails at runtime with a conversion error.
+9. GROUPING: an arbitrary MAX()/MIN() on a descriptive column is used just to satisfy
    GROUP BY, letting one arbitrary row stand in for a whole group.
-9. SAFETY: it is not a single read-only SELECT (or WITH ... SELECT).
+10. SAFETY: it is not a single read-only SELECT (or WITH ... SELECT).
 
 ### OTHERWISE APPROVE ###
 

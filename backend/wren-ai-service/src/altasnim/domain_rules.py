@@ -90,20 +90,24 @@ _CORRECTNESS_RULES = """
 # 4. Dialect safety - the observed DATE_TRUNC class of failures
 # --------------------------------------------------------------------------------------
 _DIALECT_RULES = """
-[AL-TASNIM] DIALECT SAFETY (target database is Microsoft SQL Server):
-19. Only use functions that exist for the target database. If a SQL FUNCTIONS list is
-    provided in the input, you MUST choose from it.
-20. Never use PostgreSQL/ANSI-only constructs that SQL Server does not implement, in
-    particular DATE_TRUNC, EXTRACT, ILIKE, LIMIT/OFFSET and :: casts.
-21. For date grouping and date maths use the SQL Server family of functions - YEAR(),
-    MONTH(), DAY(), DATEPART, DATENAME, DATEADD, DATEDIFF, CONVERT/FORMAT. Row limiting
-    uses TOP (n), not LIMIT.
-22. Use the exact argument signature each function requires. In particular DATEDIFF takes
-    THREE arguments - the date part first: DATEDIFF(day, start_date, end_date). Never call
-    it with two arguments. The same applies to DATEADD(part, number, date). To get a
-    duration in days between two dates, use DATEDIFF(day, start_date, end_date).
-23. Prefer clear, traceable SQL over clever SQL. Use CTEs for multi-step logic so each step
+[AL-TASNIM] FUNCTION SAFETY:
+19. You are writing SQL for Wren AI's query engine, which rewrites it for the target
+    database. Do NOT assume the target database's native dialect. In particular, do not
+    reach for vendor-specific spellings such as DATEADD, DATENAME, MONTH(), DAY(), CONVERT()
+    or TOP(n) unless they appear in the SQL FUNCTIONS list you were given.
+20. The SQL FUNCTIONS section of your input is the AUTHORITATIVE list of what the engine
+    accepts. Use ONLY functions from that list. If the function you want is not there,
+    express the same result with functions that ARE listed - never invent or substitute a
+    similarly named one.
+21. Use each function's exact argument signature; a wrong argument count is rejected at
+    planning time. When unsure of a signature, prefer a simpler formulation you are certain
+    of, built from listed functions.
+22. Prefer clear, traceable SQL over clever SQL. Use CTEs for multi-step logic so each step
     can be checked.
+23. Check column data types before comparing or joining. Never join or compare a text column
+    to a numeric one, and never place a non-numeric value where a number is expected - an
+    implicit conversion will fail at runtime. Join on the key columns the schema defines, and
+    cast explicitly (with a listed function) only when the schema genuinely requires it.
 """
 
 # --------------------------------------------------------------------------------------

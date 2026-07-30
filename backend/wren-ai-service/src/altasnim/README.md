@@ -30,7 +30,7 @@ SQL generation -> dry run OK -> [Al-Tasnim verifier] -> accepted -> execute
 It rejects a query when it references a table never joined (including inside a CTE), uses a
 non-existent table/column, answers a different question, adds unrequested filters/DISTINCT,
 ignores the requested result size, confuses latest-vs-history, misuses a function signature
-(e.g. two-argument `DATEDIFF`), fakes grouping with `MAX(name)`, or is not a read-only SELECT.
+(a function outside the engine's list, or a wrong argument count), joins mismatched types, fakes grouping with `MAX(name)`, or is not a read-only SELECT.
 
 Two safety properties:
 * **Fails open** - any error or unparsable verdict approves the SQL, so verification can
@@ -61,7 +61,7 @@ specific):
 1. **Intent fidelity** – answer exactly what was asked; no unrequested filters/DISTINCT/columns; respect "all / top N / sample / count".
 2. **Schema, joins and mappings** – only real tables/columns; follow real relationships; no useless joins; no `MAX(name)` group hacks.
 3. **Correctness of values, time and units** – latest-vs-historical, NULL ≠ 0, fraction vs percentage, `YYYYMMDD` date keys, aggregate in SQL.
-4. **Dialect safety** – SQL Server functions only; never `DATE_TRUNC`, `EXTRACT`, `ILIKE`, `LIMIT`, `::`.
+4. **Function safety** – use ONLY functions from the engine's supplied SQL FUNCTIONS list (Wren AI rewrites SQL for the target DB, so vendor spellings like `DATEADD`/`CONVERT`/`TOP` are rejected); correct argument signatures; no text-vs-numeric joins.
 5. **Read-only safety** – single SELECT; never touch config/credential/staging tables or secret columns.
 6. **Self-check** – verify the SQL against the question before returning it.
 
