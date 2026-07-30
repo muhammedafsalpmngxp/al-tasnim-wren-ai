@@ -8,6 +8,7 @@ from hamilton.async_driver import AsyncDriver
 from haystack.components.builders.prompt_builder import PromptBuilder
 from langfuse.decorators import observe
 
+from src.altasnim.domain_rules import answer_integrity_rules as altasnim_answer_rules
 from src.core.pipeline import BasicPipeline
 from src.core.provider import LLMProvider
 from src.pipelines.common import clean_up_new_lines
@@ -37,6 +38,12 @@ Please answer the user's question in concise and clear manner in Markdown format
 
 Please provide your response in proper Markdown stringformat.
 """
+
+# [AL-TASNIM] Independent answer-integrity checklist: the answer must be fully grounded in
+# the returned data, free of internal/technical details, and honest about limitations.
+sql_to_answer_system_prompt = (
+    sql_to_answer_system_prompt + "\n\n" + altasnim_answer_rules()
+).strip()
 
 sql_to_answer_user_prompt_template = """
 ### Inputs ###

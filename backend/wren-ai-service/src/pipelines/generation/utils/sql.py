@@ -7,6 +7,7 @@ from haystack import component
 from haystack.dataclasses import ChatMessage
 from pydantic import BaseModel
 
+from src.altasnim.domain_rules import sql_generation_rules as altasnim_sql_rules
 from src.core.engine import (
     Engine,
     clean_generation_result,
@@ -544,7 +545,11 @@ SQL_GENERATION_MODEL_KWARGS = {
 def construct_instructions(
     instructions: list[dict] | None = None,
 ):
-    _instructions = []
+    # [AL-TASNIM] Domain + accuracy rules are injected first so they act as the baseline
+    # for every SQL generation call. User-managed instructions from the UI follow, and
+    # therefore take precedence when they are more specific.
+    _instructions = list(altasnim_sql_rules())
+
     if instructions:
         _instructions += [
             instruction.get("instruction") for instruction in instructions

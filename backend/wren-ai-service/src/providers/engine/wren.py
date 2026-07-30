@@ -7,11 +7,38 @@ from typing import Any, Dict, Optional, Tuple
 import aiohttp
 import orjson
 
+from src.altasnim.guard import is_select_only
 from src.config import settings
 from src.core.engine import Engine, remove_limit_statement
 from src.providers.loader import provider
 
 logger = logging.getLogger("wren-ai-service")
+
+
+def altasnim_reject(
+    sql: str,
+) -> Optional[Tuple[bool, Optional[Dict[str, Any]], Dict[str, Any]]]:
+    """Return an engine-shaped failure tuple when `sql` is not a safe read-only SELECT.
+
+    Returns None when the statement is allowed, so call sites read as:
+
+        if blocked := altasnim_reject(sql):
+            return blocked
+    """
+    ok, reason = is_select_only(sql)
+    if ok:
+        return None
+
+    logger.warning("[altasnim-guard] rejected statement: %s | sql=%s", reason, sql)
+    return (
+        False,
+        None,
+        {
+            "error_message": f"Blocked by read-only policy: {reason}",
+            "error_sql": sql,
+            "correlation_id": "",
+        },
+    )
 
 
 @provider("wren_ui")
@@ -33,6 +60,10 @@ class WrenUI(Engine):
         limit: int = 500,
         **kwargs,
     ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        # [AL-TASNIM] read-only guard: reject anything that is not a single SELECT.
+        if blocked := altasnim_reject(sql):
+            return blocked
+
         data = {
             "sql": remove_limit_statement(sql),
             "projectId": project_id,
@@ -165,6 +196,10 @@ class WrenIbis(Engine):
         limit: int = 500,
         **kwargs,
     ) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        # [AL-TASNIM] read-only guard: reject anything that is not a single SELECT.
+        if blocked := altasnim_reject(sql):
+            return blocked
+
         api_endpoint = f"{self._endpoint}/v3/connector/{self._source}/query"
         if dry_run:
             api_endpoint += "?dryRun=true&limit=1"
@@ -306,6 +341,10 @@ class WrenEngine(Engine):
         limit: int = 500,
         **kwargs,
     ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+        # [AL-TASNIM] read-only guard: reject anything that is not a single SELECT.
+        if blocked := altasnim_reject(sql):
+            return blocked
+
         api_endpoint = (
             f"{self._endpoint}/v1/mdl/dry-run"
             if dry_run
