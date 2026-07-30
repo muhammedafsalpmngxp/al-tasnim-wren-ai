@@ -1,3 +1,4 @@
+from .altasnim_sql_verifier import AltasnimSqlVerifier
 from .chart_adjustment import ChartAdjustment
 from .chart_generation import ChartGeneration
 from .data_assistance import DataAssistance
@@ -28,6 +29,7 @@ __all__ = [
     "RelationshipRecommendation",
     "SemanticsDescription",
     "SQLAnswer",
+    "AltasnimSqlVerifier",
     "SQLCorrection",
     "SQLDiagnosis",
     "SQLGeneration",

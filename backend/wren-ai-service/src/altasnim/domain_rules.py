@@ -16,7 +16,7 @@ Toggle with ALTASNIM_DOMAIN_RULES (default: enabled).
 
 from __future__ import annotations
 
-import os
+from src.altasnim.settings import domain_rules_enabled
 
 # --------------------------------------------------------------------------------------
 # 1. Intent fidelity - answer exactly what was asked, nothing more
@@ -156,11 +156,7 @@ _ANSWER_RULES = """
 
 
 def _enabled() -> bool:
-    return os.getenv("ALTASNIM_DOMAIN_RULES", "true").strip().lower() not in (
-        "false",
-        "0",
-        "no",
-    )
+    return domain_rules_enabled()
 
 
 def sql_generation_rules() -> list[str]:

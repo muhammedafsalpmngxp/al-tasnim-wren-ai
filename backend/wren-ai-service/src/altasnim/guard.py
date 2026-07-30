@@ -12,8 +12,9 @@ Enable/disable with the ALTASNIM_SELECT_ONLY env var (default: enabled).
 from __future__ import annotations
 
 import logging
-import os
 import re
+
+from src.altasnim.settings import select_only_enabled
 
 logger = logging.getLogger("wren-ai-service")
 
@@ -34,11 +35,7 @@ class SqlGuardError(Exception):
 
 
 def _enabled() -> bool:
-    return os.getenv("ALTASNIM_SELECT_ONLY", "true").strip().lower() not in (
-        "false",
-        "0",
-        "no",
-    )
+    return select_only_enabled()
 
 
 def _strip_comments(sql: str) -> str:

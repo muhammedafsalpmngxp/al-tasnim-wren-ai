@@ -153,6 +153,11 @@ def create_service_container(
                 "sql_knowledge_retrieval": retrieval.SqlKnowledges(
                     **pipe_components["sql_knowledge_retrieval"],
                 ),
+                # [AL-TASNIM] Independent reviewer: checks that a dry-run-valid query really
+                # answers the question before it is accepted.
+                "altasnim_sql_verifier": generation.AltasnimSqlVerifier(
+                    **pipe_components["sql_generation"],
+                ),
             },
             allow_intent_classification=settings.allow_intent_classification,
             allow_sql_generation_reasoning=settings.allow_sql_generation_reasoning,

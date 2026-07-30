@@ -7,6 +7,7 @@ from langfuse.decorators import observe
 from pydantic import AliasChoices, BaseModel, Field
 
 from src.core.pipeline import BasicPipeline
+from src.altasnim.settings import verifier_enabled as altasnim_verifier_enabled
 from src.utils import trace_metadata
 from src.web.v1.services import BaseRequest, SSEEvent
 
@@ -497,9 +498,52 @@ class AskService:
                         sql_knowledge=sql_knowledge,
                     )
 
-                if sql_valid_result := text_to_sql_generation_results["post_process"][
+                sql_valid_result = text_to_sql_generation_results["post_process"][
                     "valid_generation_result"
-                ]:
+                ]
+                failed_dry_run_result = text_to_sql_generation_results["post_process"][
+                    "invalid_generation_result"
+                ]
+
+                # [AL-TASNIM] Independent verification. A dry run only proves the SQL *runs*;
+                # it cannot tell whether it answers the question. If the reviewer rejects it,
+                # the query is handed to the existing correction loop with the reviewer's
+                # feedback as the error, so the proven fix path is reused unchanged.
+                if sql_valid_result and altasnim_verifier_enabled():
+                    try:
+                        _verdict = (
+                            await self._pipelines["altasnim_sql_verifier"].run(
+                                query=user_query,
+                                sql=sql_valid_result.get("sql"),
+                                contexts=table_ddls,
+                                sql_generation_reasoning=sql_generation_reasoning or "",
+                            )
+                        ).get("post_process", {})
+
+                        if not _verdict.get("ok", True):
+                            _rejected_sql = sql_valid_result.get("sql")
+                            _reason = (
+                                _verdict.get("feedback")
+                                or _verdict.get("issue")
+                                or "The query does not correctly answer the question."
+                            )
+                            logger.info(
+                                "[altasnim-verifier] rejected SQL: %s", _reason
+                            )
+                            failed_dry_run_result = {
+                                "type": "ALTASNIM_VERIFIER",
+                                "sql": _rejected_sql,
+                                "original_sql": _rejected_sql,
+                                "error": _reason,
+                            }
+                            sql_valid_result = None
+                    except Exception as _e:  # noqa: BLE001
+                        # Fail open: never let verification break a working answer.
+                        logger.warning(
+                            "[altasnim-verifier] skipped due to error: %s", _e
+                        )
+
+                if sql_valid_result:
                     api_results = [
                         AskResult(
                             **{
@@ -508,9 +552,7 @@ class AskService:
                             }
                         )
                     ]
-                elif failed_dry_run_result := text_to_sql_generation_results[
-                    "post_process"
-                ]["invalid_generation_result"]:
+                elif failed_dry_run_result:
                     while current_sql_correction_retries < max_sql_correction_retries:
                         if failed_dry_run_result["type"] == "TIME_OUT":
                             break

@@ -20,3 +20,4 @@ services:
       # Set to "false" to fall back to stock Wren AI behaviour.
       ALTASNIM_SELECT_ONLY: ${ALTASNIM_SELECT_ONLY:-true}
       ALTASNIM_DOMAIN_RULES: ${ALTASNIM_DOMAIN_RULES:-true}
+      ALTASNIM_VERIFIER: ${ALTASNIM_VERIFIER:-true}
