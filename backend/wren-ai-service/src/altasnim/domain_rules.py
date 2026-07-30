@@ -54,6 +54,14 @@ _SCHEMA_RULES = """
    example MAX(name) to represent a group). Return proper group-level metrics, or identify
    a specific row with an explicit ranking (ROW_NUMBER/RANK).
 10. Never let one arbitrary row stand in for a whole group.
+11. CRITICAL - every table you reference anywhere in a query (SELECT, WHERE, GROUP BY,
+    ORDER BY, HAVING) MUST be brought in by that query's FROM or JOIN clause. Never mention
+    a table you did not join. If you need a column from another table, add the join that
+    reaches it through a real relationship - do not assume the column is reachable.
+12. When an attribute lives on a table you have not joined, either join through the correct
+    relationship chain, or select the equivalent column from a table you HAVE joined. Check
+    every column reference resolves to a table in the same query scope, including inside
+    each CTE (a CTE only sees the tables it declares itself).
 """
 
 # --------------------------------------------------------------------------------------
@@ -61,20 +69,20 @@ _SCHEMA_RULES = """
 # --------------------------------------------------------------------------------------
 _CORRECTNESS_RULES = """
 [AL-TASNIM] CORRECTNESS OF VALUES, TIME AND UNITS:
-11. For "latest", "current" or "most recent", select the latest record per entity using the
+13. For "latest", "current" or "most recent", select the latest record per entity using the
     correct date/sequence column (ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ... DESC) or
     MAX()). Do NOT average across history when the user asked for the current value.
-12. Treat snapshot/history tables as time series: pick the newest row per entity for current
+14. Treat snapshot/history tables as time series: pick the newest row per entity for current
     state, and use the full series only for trends.
-13. NEVER treat NULL or missing data as zero. Distinguish zero vs missing vs unavailable vs
+15. NEVER treat NULL or missing data as zero. Distinguish zero vs missing vs unavailable vs
     not-applicable. A NULL date means "unknown", not 0 - never compute a delay, average or
     count as if NULL were 0.
-14. Validate the meaning and scale of numeric fields before calculating. Progress-style
+16. Validate the meaning and scale of numeric fields before calculating. Progress-style
     values stored as decimals between 0 and 1 are fractions (0.27 = 27%) - multiply by 100
     for a percentage; do not mix fraction and percentage columns in one calculation.
-15. Integer date keys in YYYYMMDD form must be converted to a real date before date maths,
+17. Integer date keys in YYYYMMDD form must be converted to a real date before date maths,
     and only when the value is a valid, positive key.
-16. Do totals, averages, counts and rankings in SQL (SUM/AVG/COUNT/MIN/MAX with GROUP BY,
+18. Do totals, averages, counts and rankings in SQL (SUM/AVG/COUNT/MIN/MAX with GROUP BY,
     or window functions) so the database computes them exactly - never by eyeballing rows.
 """
 
@@ -83,14 +91,18 @@ _CORRECTNESS_RULES = """
 # --------------------------------------------------------------------------------------
 _DIALECT_RULES = """
 [AL-TASNIM] DIALECT SAFETY (target database is Microsoft SQL Server):
-17. Only use functions that exist for the target database. If a SQL FUNCTIONS list is
+19. Only use functions that exist for the target database. If a SQL FUNCTIONS list is
     provided in the input, you MUST choose from it.
-18. Never use PostgreSQL/ANSI-only constructs that SQL Server does not implement, in
+20. Never use PostgreSQL/ANSI-only constructs that SQL Server does not implement, in
     particular DATE_TRUNC, EXTRACT, ILIKE, LIMIT/OFFSET and :: casts.
-19. For date grouping and date maths use the SQL Server family of functions - YEAR(),
+21. For date grouping and date maths use the SQL Server family of functions - YEAR(),
     MONTH(), DAY(), DATEPART, DATENAME, DATEADD, DATEDIFF, CONVERT/FORMAT. Row limiting
     uses TOP (n), not LIMIT.
-20. Prefer clear, traceable SQL over clever SQL. Use CTEs for multi-step logic so each step
+22. Use the exact argument signature each function requires. In particular DATEDIFF takes
+    THREE arguments - the date part first: DATEDIFF(day, start_date, end_date). Never call
+    it with two arguments. The same applies to DATEADD(part, number, date). To get a
+    duration in days between two dates, use DATEDIFF(day, start_date, end_date).
+23. Prefer clear, traceable SQL over clever SQL. Use CTEs for multi-step logic so each step
     can be checked.
 """
 
@@ -99,10 +111,10 @@ _DIALECT_RULES = """
 # --------------------------------------------------------------------------------------
 _SAFETY_RULES = """
 [AL-TASNIM] READ-ONLY SAFETY:
-21. Generate a SINGLE read-only SELECT statement (a WITH ... SELECT is fine). Never generate
+24. Generate a SINGLE read-only SELECT statement (a WITH ... SELECT is fine). Never generate
     INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, CREATE, TRUNCATE, EXEC, or multiple
     statements. Anything else is rejected before execution.
-22. Never query internal application, configuration, credential, telemetry or staging
+25. Never query internal application, configuration, credential, telemetry or staging
     tables, and never select any password/secret/token column, even if asked.
 """
 
@@ -111,10 +123,10 @@ _SAFETY_RULES = """
 # --------------------------------------------------------------------------------------
 _SELF_CHECK_RULES = """
 [AL-TASNIM] SELF-CHECK BEFORE RETURNING THE SQL:
-23. Verify: does this answer the user's exact question? Are the tables and columns real and
+26. Verify: does this answer the user's exact question? Are the tables and columns real and
     joined through their real relationships? Is latest-vs-historical handled correctly? Are
     units and scale right? Are there any filters, joins or DISTINCT that were not requested?
-24. If the question is genuinely ambiguous or depends on a business definition you have not
+27. If the question is genuinely ambiguous or depends on a business definition you have not
     been given, do not invent one - answer the most reasonable literal reading and state the
     assumption, or ask for clarification.
 """

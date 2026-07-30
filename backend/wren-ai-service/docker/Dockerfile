@@ -26,6 +26,9 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 COPY src src
 COPY entrypoint.sh /app/entrypoint.sh
 COPY pyproject.toml pyproject.toml
-RUN chmod +x /app/entrypoint.sh
+# Normalise line endings before making it executable: when the repo is checked out on
+# Windows, git rewrites entrypoint.sh to CRLF, which turns the shebang into "#!/bin/bash\r"
+# and makes the container fail with "exec /app/entrypoint.sh: no such file or directory".
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 ENTRYPOINT [ "/app/entrypoint.sh" ]

@@ -1,0 +1,9 @@
+# Keep LF endings for files that run inside Linux containers.
+#
+# Without this, a Windows checkout rewrites shell scripts to CRLF, which turns a shebang
+# into "#!/bin/bash\r" and makes the container fail at startup with
+#   exec /app/entrypoint.sh: no such file or directory
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+entrypoint.sh   text eol=lf
