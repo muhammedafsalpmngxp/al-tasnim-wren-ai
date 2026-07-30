@@ -136,6 +136,32 @@ _SELF_CHECK_RULES = """
 """
 
 # --------------------------------------------------------------------------------------
+# 7. Complex and multi-part questions - compose ONE query, never give up
+# --------------------------------------------------------------------------------------
+_COMPLEX_RULES = """
+[AL-TASNIM] COMPLEX AND MULTI-PART QUESTIONS - always produce a query:
+28. You get exactly ONE query per question, so a multi-part question must be answered by a
+    SINGLE composed statement. Never refuse, never answer only one part, and never ask the
+    user to split the question.
+29. Build it with CTEs: give each part of the question its own WITH block, then combine.
+    - Parts about the SAME entity -> join the CTEs on the shared key.
+    - Independent lists ("list the wells AND the top 5 activity groups") -> UNION ALL the
+      CTEs into one result, with a constant label column (e.g. 'well' / 'wbs') identifying
+      which part each row belongs to, and NULL-padded columns so both parts share a shape.
+    - Per-part limits apply inside that part's CTE (e.g. TOP (5) inside the WBS CTE only),
+      never to the whole statement.
+30. "Which X have more than one Y" style questions: collect the distinct X-Y pairs in a CTE
+    (UNION the sources if the relationship exists on several tables), then GROUP BY X with
+    HAVING COUNT(DISTINCT Y) > 1. Do not assume a single source table holds the whole
+    relationship.
+31. To show several related values per row (e.g. "the three projects for each well"), rank
+    them with ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...) inside a CTE and pivot with
+    conditional aggregation - never with an arbitrary MAX() over a descriptive column.
+32. If a needed table is missing from the schema you were given, work with what you have and
+    answer the part you can; do not invent tables or abandon the query.
+"""
+
+# --------------------------------------------------------------------------------------
 # Answer integrity rules (used when turning SQL results into a written answer)
 # --------------------------------------------------------------------------------------
 _ANSWER_RULES = """
@@ -172,6 +198,7 @@ def sql_generation_rules() -> list[str]:
         _SCHEMA_RULES.strip(),
         _CORRECTNESS_RULES.strip(),
         _DIALECT_RULES.strip(),
+        _COMPLEX_RULES.strip(),
         _SAFETY_RULES.strip(),
         _SELF_CHECK_RULES.strip(),
     ]

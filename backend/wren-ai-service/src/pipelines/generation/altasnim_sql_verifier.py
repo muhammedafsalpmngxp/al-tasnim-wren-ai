@@ -72,6 +72,12 @@ skeptical - but do not reject a query merely because you would have written it d
 If none of the above apply, approve it. Style preferences, formatting, alternative but
 equally valid joins, and extra-but-harmless ordering are NOT reasons to reject.
 
+Multi-part questions are expected to be answered by ONE composed statement. CTEs, UNION /
+UNION ALL of several parts, a label column identifying which part a row belongs to,
+NULL-padded columns so the parts share a shape, and a per-part TOP (n) inside that part's
+CTE are all CORRECT - approve them. Judge "result size" per part, not over the whole
+statement. Never reject a query merely for being long or composed.
+
 ### OUTPUT FORMAT ###
 
 Return ONLY this JSON:
